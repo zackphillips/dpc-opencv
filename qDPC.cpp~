@@ -418,8 +418,8 @@ int main(int argc, char** argv )
    transFunction45.convertTo(transFunction45,CV_64FC1);
    transFunction135.convertTo(transFunction135,CV_64FC1);
    
-	normalize(transFunction45, transFunction45, -1, 1, CV_MINMAX);
-	normalize(transFunction135, transFunction135, -1, 1, CV_MINMAX);
+	normalize(transFunction45, transFunction45, -1, 1, NORM_MINMAX);
+	normalize(transFunction135, transFunction135, -1, 1, NORM_MINMAX);
 	
 	vector<cv::Mat> transferFunctionList;
 	transferFunctionList.push_back(transFunction45);
@@ -427,7 +427,7 @@ int main(int argc, char** argv )
 	
 	double reg = 0.001;
 	Mat ph_dpc = qDPC_loop(dpcList,transferFunctionList,reg);
-   normalize(ph_dpc, ph_dpc, 0, 1, CV_MINMAX);
+   normalize(ph_dpc, ph_dpc, 0, 1, NORM_MINMAX);
    
    namedWindow("Phase Image", WINDOW_NORMAL);
    imshow("Phase Image", ph_dpc);

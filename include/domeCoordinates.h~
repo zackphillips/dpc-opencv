@@ -1,11 +1,35 @@
-
+#include <unordered_map>
 static int leftList[30] = {159,160,180,181,182,201,202,203,223,224,225,226,246,247,248,249,270,271,272,292,293,294,295,315,316,317,338,339,340,361};
 static int rightList[30] = {161,162,183,184,204,205,206,227,228,229,250,251,252,253,273,274,275,276,296,297,298,299,318,319,320,321,341,342,343,362};
 static int topList[30] = {270,271,272,273,274,275,276,292,293,294,295,296,297,298,299,315,316,317,318,319,320,321,338,339,340,341,342,343,361,362};
 static int bottomList[30] = {159,160,161,162,180,181,182,183,184,201,202,203,204,205,206,223,224,225,226,227,228,229,246,247,248,249,250,251,252,253};
 
+static unordered_map<int, bool> leftMap;
+leftMap = {{159, true}, {160, true}, {180, true}, {181, true}, {182, true}, {201, true}, {202, true},
+            {203, true}, {223, true}, {224, true}, {225, true}, {226, true}, {246, true}, {247, true},
+            {248, true}, {249, true}, {270, true}, {271, true}, {272, true}, {292, true}, {293, true},
+            {294, true}, {295, true}, {315, true}, {316, true}, {317, true}, {338, true}, {339, true},
+            {340, true}, {361, true},
+            {161, false}, {162, false}, {183, false}, {184, false}, {204, false}, {205, false},
+            {206, false}, {227, false}, {228, false}, {229, false}, {250, false}, {251, false},
+            {252, false}, {253, false}, {273, false}, {274, false}, {275, false}, {276, false},
+            {296, false}, {297, false}, {298, false}, {299, false}, {318, false}, {319, false},
+            {320, false}, {321, false}, {341, false}, {342, false}, {343, false}, {362, false}};
+            
+static unordered_map<int, bool> topMap;
+topMap = {{270, true}, {271, true}, {272, true}, {273, true}, {274, true}, {275, true}, {276, true},
+            {292, true}, {293, true}, {294, true}, {295, true}, {296, true}, {297, true}, {298, true},
+            {299, true}, {315, true}, {316, true}, {317, true}, {318, true}, {319, true}, {320, true},
+            {321, true}, {338, true}, {339, true}, {340, true}, {341, true}, {342, true}, {343, true},
+            {361, true}, {362, true},
+            {159, false}, {160, false}, {161, false}, {162, false}, {180, false}, {181, false},
+            {182, false}, {183, false}, {184, false}, {201, false}, {202, false}, {203, false},
+            {204, false}, {205, false}, {206, false}, {223, false}, {224, false}, {225, false},
+            {226, false}, {227, false}, {228, false}, {229, false}, {246, false}, {247, false},
+            {248, false}, {249, false}, {250, false}, {251, false}, {252, false}, {253, false}};
+
 // CellScope Image Cropping Sizes
-static cv::Rect CellScopeCropHorz(590, 205, 2050, 2050);
+static cv::Rect CellScopeCropHorz(600, 205, 2050, 2050);
 static cv::Rect CellScopeCropVert(205, 590, 2050, 2050);
 
 static double domeCoordinates[508][3] = {
