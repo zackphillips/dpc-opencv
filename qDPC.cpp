@@ -8,11 +8,9 @@
 #include <stdio.h>
 #include <dirent.h>
 #include <complex.h>
-<<<<<<< HEAD
 #include <ctime>
-=======
 #include <unordered_map>
->>>>>>> 4cf859bfa5cd864e3a43a309f35d17b07dd24da2
+
 
 #define FILENAME_LENGTH 32
 #define FILE_HOLENUM_DIGITS 3
