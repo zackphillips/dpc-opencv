@@ -8,7 +8,11 @@
 #include <stdio.h>
 #include <dirent.h>
 #include <complex.h>
+<<<<<<< HEAD
 #include <ctime>
+=======
+#include <unordered_map>
+>>>>>>> 4cf859bfa5cd864e3a43a309f35d17b07dd24da2
 
 #define FILENAME_LENGTH 32
 #define FILE_HOLENUM_DIGITS 3
@@ -155,12 +159,12 @@ void computeFocusDPC(vector<R_image> iStack, int fileCount, float z, int width, 
 			split(shifted, channels);
 			channels[1].convertTo(channels[1],dpc_result_lr.type());
 			
-			if (find(leftList, leftList + 30, holeNum) != leftList + 30)
+			if (leftMap[holeNum])
              cv::add(dpc_result_lr, channels[1], dpc_result_lr);
          else
              cv::subtract(dpc_result_lr, channels[1], dpc_result_lr);
 
-         if (find(topList, topList + 30, holeNum) != topList + 30)
+         if (topMap[holeNum])
              cv::add(dpc_result_tb, channels[1], dpc_result_tb);
          else
              cv::subtract(dpc_result_tb, channels[1], dpc_result_tb);
@@ -203,8 +207,8 @@ cv::Mat calcDPC( cv::Mat image1, cv::Mat image2)
   */
   std::cout << image1.type() << endl;
   std::cout << image2.type() << endl;
-  cv::cvtColor(image1,image1,CV_BGR2GRAY);
-  cv::cvtColor(image2,image2,CV_BGR2GRAY);
+  cv::cvtColor(image1,image1,COLOR_BGR2GRAY);
+  cv::cvtColor(image2,image2,COLOR_BGR2GRAY);
   
   image1.convertTo(image1,CV_32FC1);
   image2.convertTo(image2,CV_32FC1);
