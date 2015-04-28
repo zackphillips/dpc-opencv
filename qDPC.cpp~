@@ -267,7 +267,13 @@ cv::Mat qDPC_loop(vector<cv::Mat>dpcList, vector<cv::Mat>transferFunctionList, d
 
    for (int idx = 0; idx<transferFunctionList.size(); idx++)
    {
-
+      /*
+      // Put the transfer functions in complex Mats
+      h[0] = Mat::zeros(transferFunctionList.at(idx).size(),CV_64F);
+      h[1] = transferFunctionList.at(idx);
+      merge(h,2,tmp);
+      complexTransferFunctionList.at(idx) = tmp;
+      */
       copyMakeBorder(transferFunctionList.at(idx), padded, 0, m - transferFunctionList.at(idx).rows, 0, n - transferFunctionList.at(idx).cols, BORDER_CONSTANT, Scalar::all(0));
       copyMakeBorder(dpcList.at(idx), padded, 0, m - dpcList.at(idx).rows, 0, n - dpcList.at(idx).cols, BORDER_CONSTANT, Scalar::all(0));
       
