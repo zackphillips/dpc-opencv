@@ -9,6 +9,8 @@
 #include <complex.h>
 #include <unordered_map>
 
+#include "omp.h"
+
 #define FILENAME_LENGTH 32
 #define FILE_HOLENUM_DIGITS 3
 using namespace std;
@@ -283,6 +285,7 @@ cv::Mat qDPC_loop(vector<cv::Mat>dpcList, vector<cv::Mat>transferFunctionList, d
 	for (int i=0; i < dpcComplex.cols; i++){
    std::cout << i<<endl;
 	   for (int j=0; j < dpcComplex.rows; j++){
+	      #pragma omp parallel for
 	      for (int k=0; k < dpcList.size(); k++)
 	      {
 	        H_sum += std::complex<double>(0,transferFunctionList.at(k).at<double>(i,j));
@@ -348,7 +351,7 @@ cv::Mat qDPC_single(int16_t angle, Mat dpc, Mat transferFn)
 
 int main(int argc, char** argv )
 {
-
+    double startTime = omp_get_wtime();
    /*
    Inputs:
    RefocusMin
@@ -431,7 +434,7 @@ int main(int argc, char** argv )
    
    namedWindow("Phase Image", WINDOW_NORMAL);
    imshow("Phase Image", ph_dpc);
-   
+   cout << "execution took " << omp_get_wtime() - startTime << " seconds" << endl;
    waitKey(0);
 } 
 
