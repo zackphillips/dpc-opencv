@@ -2,14 +2,18 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/video/background_segm.hpp>
+#include <opencv2/contrib/contrib.hpp>
 #include <iostream>
 #include <string>
 #include <stdio.h>
 #include <dirent.h>
 #include <complex.h>
+#include <ctime>
 #include <unordered_map>
 
+
 #include "omp.h"
+
 
 #define FILENAME_LENGTH 32
 #define FILE_HOLENUM_DIGITS 3
@@ -185,7 +189,6 @@ void computeFocusDPC(vector<R_image> iStack, int fileCount, float z, int width, 
         results[0] = bf_result8;
         results[1] = dpc_result_lr8;
         results[2] = dpc_result_tb8;
-
 }
 
 cv::Mat calcDPC( cv::Mat image1, cv::Mat image2)
@@ -237,6 +240,7 @@ cv::Mat calcDPC( cv::Mat image1, cv::Mat image2)
 
 cv::Mat qDPC_loop(vector<cv::Mat>dpcList, vector<cv::Mat>transferFunctionList, double reg)
 {
+   clock_t begin = clock();
    vector<Mat> complexPlanes;
    
    Mat h[2];
@@ -253,99 +257,92 @@ cv::Mat qDPC_loop(vector<cv::Mat>dpcList, vector<cv::Mat>transferFunctionList, d
    vector<cv::Mat> dpcFtRealList(dpcList.size());
    vector<cv::Mat> dpcFtImagList(dpcList.size());
    
+   /*
+   namedWindow("DPC1", WINDOW_NORMAL);
+   imshow("DPC1", dpcList.at(0));
+   
+   namedWindow("DPC2", WINDOW_NORMAL);
+   imshow("DPC2", dpcList.at(1));
+   */
+   // Pad all values
+   
+   Mat padded;                            //expand input image to optimal size
+   int m = getOptimalDFTSize( dpcList.at(0).rows );
+   int n = getOptimalDFTSize( dpcList.at(0).cols ); // on the border add zero values
+
    for (int idx = 0; idx<transferFunctionList.size(); idx++)
    {
-      // Put the transfer functions in complex Mats
-      h[0] = Mat::zeros(transferFunctionList.at(idx).size(),CV_64F);
-      h[1] = transferFunctionList.at(idx);
-      merge(h,2,tmp);
+
+      copyMakeBorder(transferFunctionList.at(idx), padded, 0, m - transferFunctionList.at(idx).rows, 0, n - transferFunctionList.at(idx).cols, BORDER_CONSTANT, Scalar::all(0));
+      copyMakeBorder(dpcList.at(idx), padded, 0, m - dpcList.at(idx).rows, 0, n - dpcList.at(idx).cols, BORDER_CONSTANT, Scalar::all(0));
       
       // Take Fourier Transforms of DPC Images
       planes[0] = Mat_<double>(dpcList.at(idx));
       planes[1] = Mat::zeros(dpcList.at(idx).size(), CV_64F);
       
       merge(planes, 2, dpcComplex);
-      dft(dpcComplex, dpcFtList.at(idx));
-      split(dpcFtList.at(idx), complexPlanes);
+      dft(dpcComplex, dpcComplex);
+      split(dpcComplex, complexPlanes);
       dpcFtRealList.at(idx) = complexPlanes[0];
       dpcFtImagList.at(idx) = complexPlanes[1];
-      
    }
-   /*
-   split(dpc_ft, complexPlanes);
-	Mat dpc_ft_real = complexPlanes[0];
-   Mat dpc_ft_imag = complexPlanes[1];
-   */
-   
+   clock_t c1 = clock();
+   double elapsed_secs = double(c1 - begin) / CLOCKS_PER_SEC;
+   cout << elapsed_secs << endl;
+
    complex<double> H_sum(0,0);
    complex<double> Hi_sum(0,0);
    complex<double> I_sum(0,0);
+   complex<double> result;
    
    // Try all of this inside of a loop to properly deal with complex values
+   #pragma omp parallel for
 	for (int i=0; i < dpcComplex.cols; i++){
-   std::cout << i<<endl;
 	   for (int j=0; j < dpcComplex.rows; j++){
-	      //pragma omp parallel for
-	      for (int k=0; k < dpcList.size(); k++)
-	      {
-	        H_sum += std::complex<double>(0,transferFunctionList.at(k).at<double>(i,j));
-	        Hi_sum += std::complex<double>(0,-1*transferFunctionList.at(k).at<double>(j,i));
-	        
 
-	        I_sum += std::complex<double>(dpcFtRealList.at(k).at<double>(i,j),dpcFtImagList.at(k).at<double>(i,j));
+	     	complex<double> H_sum = std::complex<double>(0,0);
+	        complex<double> Hi_sum = std::complex<double>(0,0);
+	        complex<double> I_sum = std::complex<double>(0,0);
+	        complex<double> result;
+	        
+	        H_sum += std::complex<double>(0,transferFunctionList.at(0).at<double>(i,j));
+	        Hi_sum += std::complex<double>(0,-1*transferFunctionList.at(0).at<double>(j,i));
+	        I_sum += std::complex<double>(dpcFtRealList.at(0).at<double>(i,j),dpcFtImagList.at(0).at<double>(i,j));
+	        
+	        H_sum += std::complex<double>(0,transferFunctionList.at(1).at<double>(i,j));
+	        Hi_sum += std::complex<double>(0,-1*transferFunctionList.at(1).at<double>(j,i));
+	        I_sum += std::complex<double>(dpcFtRealList.at(1).at<double>(i,j),dpcFtImagList.at(1).at<double>(i,j));
 	      
-	      }
-	      /*
-	      complex<double> H (0,transferFn.at<double>(i,j));
-	      complex<double> Hi (0,-1*transferFn.at<double>(j,i));
-	      complex<double> I2 (dpc_ft_real.at<double>(i,j), dpc_ft_imag.at<double>(i,j));
-	      */
-	      complex<double> result;
+	      //}
+
 	      result = ((I_sum*Hi_sum)/(abs(H_sum)*abs(H_sum) + reg));
 	      
-	      ph_dpc_ft_real.at<double>(i,j) = result.real();
-	      ph_dpc_ft_imag.at<double>(i,j) = result.imag();
+	      #pragma omp critical
+	      {
+	        ph_dpc_ft_real.at<double>(i,j) = result.real();
+	        ph_dpc_ft_imag.at<double>(i,j) = result.imag();
+	      }
 	      
-	      /*
-	      cout << "Index: " << i << ", " << j << endl;
-	      cout << "Transfer Function: " << H << endl;
-	      cout << "Transfer Function conj: " <<Hi << endl;
-	      cout << "dpc Image ft: " << I2 << endl;
-	      cout << "result: " << result << endl;
-	      */
+
 	   }
 	}
+	double c2 = clock();
+	cout << double(c2 - c1) / CLOCKS_PER_SEC<<endl;;
+	
 	Mat ph_complex_ft, ph_complex;
 	planes[0] = ph_dpc_ft_real;
 	planes[1] = ph_dpc_ft_imag;
 	
+	/*
 	namedWindow("ResultFT", WINDOW_NORMAL);
    imshow("ResultFT", planes[0]);
+   */
+   
    merge(planes, 2, ph_complex_ft);    
-	dft(ph_complex_ft, ph_complex, DFT_INVERSE|DFT_REAL_OUTPUT);
+	dft(ph_complex_ft, ph_complex, DFT_INVERSE);
 	split(ph_complex, complexPlanes); 
 	
 	return complexPlanes[0]; // Real Part
-}
-
-cv::Mat qDPC_single(int16_t angle, Mat dpc, Mat transferFn)
-{
-   vector<Mat> complexPlanes;
-   
-	Mat H_45;
-   Mat h_45[] = {Mat::zeros(transferFn.size(),CV_64F), transferFn };
-   merge(h_45,2,H_45);
-	
-   Mat dpc_complex, dpc_ft;
-   Mat planes[] = {Mat_<double>(dpc), Mat::zeros(dpc.size(), CV_64F)};
-   merge(planes, 2, dpc_complex);
-   dft(dpc_complex, dpc_ft);
-   split(dpc_ft, complexPlanes);
-  
-	double reg = 0.1;
-  
-	Mat result;
-	return dpc;
 }
 
 
@@ -401,6 +398,16 @@ int main(int argc, char** argv )
    cv::Mat trans1 = imread(trans_fName_1, -1);
    cv::Mat trans2 = imread(trans_fName_2, -1);
    
+   trans1.convertTo(trans1,CV_64FC1);
+   trans2.convertTo(trans2,CV_64FC1);
+   
+   normalize(trans1, trans1, -1, 1, CV_MINMAX);
+	normalize(trans2, trans2, -1, 1, CV_MINMAX);
+	
+   vector<cv::Mat> transferFunctionList;
+	transferFunctionList.push_back(trans1);
+	transferFunctionList.push_back(trans2);
+   
    // Crop to square
    dpc11 = dpc11 (CellScopeCropHorz);
    dpc12 = dpc12 (CellScopeCropHorz);
@@ -414,27 +421,18 @@ int main(int argc, char** argv )
    vector<cv::Mat> dpcList;
    dpcList.push_back(dpc1);
    dpcList.push_back(dpc2);
-   
-   Mat transFunction45 = imread("dpcTransferFunc_45.tiff", CV_LOAD_IMAGE_ANYDEPTH);
-   Mat transFunction135 = imread("dpcTransferFunc_135.tiff", CV_LOAD_IMAGE_ANYDEPTH);
-   
-   transFunction45.convertTo(transFunction45,CV_64FC1);
-   transFunction135.convertTo(transFunction135,CV_64FC1);
-   
-	normalize(transFunction45, transFunction45, -1, 1, CV_MINMAX);
-	normalize(transFunction135, transFunction135, -1, 1, CV_MINMAX);
-	
-	vector<cv::Mat> transferFunctionList;
-	transferFunctionList.push_back(transFunction45);
-	transferFunctionList.push_back(transFunction135);
-	
-	double reg = 0.001;
+
+	double reg = 0.8;
 	Mat ph_dpc = qDPC_loop(dpcList,transferFunctionList,reg);
-   normalize(ph_dpc, ph_dpc, 0, 1, CV_MINMAX);
+   normalize(ph_dpc, ph_dpc, -0.3, 1.4, CV_MINMAX);
    
+   Mat cm_ph_dpc;
+   cv::applyColorMap(ph_dpc, cm_ph_dpc, COLORMAP_COOL);
    namedWindow("Phase Image", WINDOW_NORMAL);
+
    imshow("Phase Image", ph_dpc);
    cout << "execution took " << omp_get_wtime() - startTime << " seconds" << endl;
+
    waitKey(0);
 } 
 
