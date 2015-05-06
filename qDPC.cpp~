@@ -10,6 +10,7 @@
 #include <complex.h>
 #include <ctime>
 #include <unordered_map>
+#include <sys/stat.h>
 
 
 #include "omp.h"
@@ -38,6 +39,11 @@ class R_image{
         float tan_x;
         float tan_y;
 };
+
+inline bool exists_test (const std::string& name) {
+  struct stat buffer;   
+  return (stat (name.c_str(), &buffer) == 0); 
+}
 
 void circularShift(Mat img, Mat result, int x, int y){
     int w = img.cols;
@@ -290,10 +296,10 @@ cv::Mat qDPC_loop(vector<cv::Mat>dpcList, vector<cv::Mat>transferFunctionList, d
    double elapsed_secs = double(c1 - begin) / CLOCKS_PER_SEC;
    cout << elapsed_secs << endl;
 
-   complex<double> H_sum(0,0);
-   complex<double> Hi_sum(0,0);
-   complex<double> I_sum(0,0);
-   complex<double> result;
+   //complex<double> H_sum(0,0);
+   //complex<double> Hi_sum(0,0);
+   //complex<double> I_sum(0,0);
+   //complex<double> result;
    
    // Try all of this inside of a loop to properly deal with complex values
    #pragma omp parallel for
@@ -365,16 +371,12 @@ int main(int argc, char** argv )
    char * trans_fName_1;
    char * trans_fName_2;
    
-
-   /*
-   if (argc < 1)
+   if (argc < 7)
    {
-      cout << "Error: selectNot enough inputs.\nUSAGE: ./Refocusing zMin zStep zMax DatasetRoot" << endl;
+      cout << "Error: Not enough inputs.\nUSAGE: ./qDPC_desktop topImage bottomImage leftImage rightImage firstTransferFunc secondTransferFunc" << endl;
       return 0;
-   }else{
-
    }
-   */
+   
    dpc_fName_11 = argv[1];
    dpc_fName_12 = argv[2];
    dpc_fName_21 = argv[3];
@@ -390,6 +392,33 @@ int main(int argc, char** argv )
    std::cout << "transfer function 1: " << trans_fName_1 << std::endl;
    std::cout << "transfer function 2: " << trans_fName_2 << std::endl;
    
+   //check if all files exist:
+   if(!exists_test(dpc_fName_11)) {
+        std::cout << "File " << dpc_fName_11 << " not found.  Terminating." << endl;
+        return 0;
+   }
+   if(!exists_test(dpc_fName_12)) {
+        std::cout << "File " << dpc_fName_12 << " not found.  Terminating." << endl;
+        return 0;
+   }
+   if(!exists_test(dpc_fName_21)) {
+        std::cout << "File " << dpc_fName_21 << " not found.  Terminating." << endl;
+        return 0;
+   }
+   if(!exists_test(dpc_fName_22)) {
+        std::cout << "File " << dpc_fName_22 << " not found.  Terminating." << endl;
+        return 0;
+   }
+   if(!exists_test(trans_fName_1)) {
+        std::cout << "File " << trans_fName_1 << " not found.  Terminating." << endl;
+        return 0;
+   }
+   if(!exists_test(trans_fName_2)) {
+        std::cout << "File " << trans_fName_1 << " not found.  Terminating." << endl;
+        return 0;
+   }
+   
+   //read in files. -1 for all permissions
    cv::Mat dpc11 = imread(dpc_fName_11, -1);
    cv::Mat dpc12 = imread(dpc_fName_12, -1);
    cv::Mat dpc21 = imread(dpc_fName_21, -1);
@@ -398,7 +427,7 @@ int main(int argc, char** argv )
    cv::Mat trans1 = imread(trans_fName_1, -1);
    cv::Mat trans2 = imread(trans_fName_2, -1);
    
-   trans1.convertTo(trans1,CV_64FC1);
+   trans1.convertTo(trans1,CV_64FC1);//CV_64FC1: 64-bit, 1 channel
    trans2.convertTo(trans2,CV_64FC1);
    
    normalize(trans1, trans1, -1, 1, CV_MINMAX);
