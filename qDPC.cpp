@@ -218,55 +218,75 @@ cv::Mat qDPC_loop(vector<cv::Mat>dpcList, vector<cv::Mat>transferFunctionList, d
     vector<cv::Mat> dpcFtList(dpcList.size());
     vector<cv::Mat> dpcFtRealList(dpcList.size());
     vector<cv::Mat> dpcFtImagList(dpcList.size());
-
    
     Mat padded;                            
     //expand input image to optimal size
     int m = getOptimalDFTSize( dpcList.at(0).rows );
     int n = getOptimalDFTSize( dpcList.at(0).cols ); // on the border add zero values
 
-    for (int idx = 0; idx<transferFunctionList.size(); idx++)
+    for (int idx = 0; idx<2; idx++)
     {
         //void copyMakeBorder(InputArray src, OutputArray dst, int top, int bottom, int left, int right, int borderType, const Scalar& value=Scalar() )
         copyMakeBorder(transferFunctionList.at(idx), padded, 0, m - transferFunctionList.at(idx).rows, 0, n - transferFunctionList.at(idx).cols, BORDER_CONSTANT, Scalar::all(0));
+        
         copyMakeBorder(dpcList.at(idx), padded, 0, m - dpcList.at(idx).rows, 0, n - dpcList.at(idx).cols, BORDER_CONSTANT, Scalar::all(0));
       
         // Take Fourier Transforms of DPC Images
         planes[0] = Mat_<double>(dpcList.at(idx));
         planes[1] = Mat::zeros(dpcList.at(idx).size(), CV_64F);
-      
+        
+        
         //merge array of Mats into one Mat. 2 refers to size of array.
         merge(planes, 2, dpcComplex);
         dft(dpcComplex, dpcComplex);
         split(dpcComplex, complexPlanes);
-        dpcFtRealList.at(idx) = complexPlanes[0];
-        dpcFtImagList.at(idx) = complexPlanes[1];
-    }
+        complexPlanes[0].copyTo(dpcFtRealList.at(idx));
+        complexPlanes[1].copyTo(dpcFtImagList.at(idx));
+        //dpcFtImagList.at(idx) = complexPlanes[1];
+        
+        std::cout << "Index is: " << idx << std::endl;
+        cout << dpcFtImagList.at(idx).at<double>(500,500) <<endl;
    
-    // Try all of this inside of a loop to properly deal with complex values
-    //loop through each pixel (i,j)
-    #pragma omp parallel for
+    }
+    cout << "After assignment:" <<endl;
+    cout << dpcFtImagList.at(0).at<double>(500,500) <<endl;
+    cout << dpcFtImagList.at(1).at<double>(500,500) <<endl;
+    
+   // #pragma omp parallel for
 	  for (int i=0; i < dpcComplex.cols; i++){
 	      for (int j=0; j < dpcComplex.rows; j++){
-
-	     	    complex<double> H_sum = std::complex<double>(0,0);
-	          complex<double> Hi_sum = std::complex<double>(0,0);
-	          complex<double> I_sum = std::complex<double>(0,0);
-	          complex<double> result;
+	     	    std::complex<double> H_sum = std::complex<double>(0,0);
+	          std::complex<double> Hi_sum = std::complex<double>(0,0);
+	          std::complex<double> I_sum = std::complex<double>(0,0);
+	          std::complex<double> result;
 	        
-            //get value of each transfer function at (i,j)
+             //get value of each transfer function at (i,j)
 	          H_sum += std::complex<double>(0,transferFunctionList.at(0).at<double>(i,j));
-	          Hi_sum += std::complex<double>(0,-1*transferFunctionList.at(0).at<double>(j,i));
+	          Hi_sum += std::complex<double>(0,-1*transferFunctionList.at(0).at<double>(i,j));
 	          I_sum += std::complex<double>(dpcFtRealList.at(0).at<double>(i,j),dpcFtImagList.at(0).at<double>(i,j));
+	          
+	          /*
+	          std::cout << "TF1:" << std::endl;
+	          std::cout << "I_1 = " << std::complex<double>(dpcFtRealList.at(0).at<double>(i,j),dpcFtImagList.at(0).at<double>(i,j)) << std::endl;
+	          std::cout << "H_1 = " << std::complex<double>(0,transferFunctionList.at(0).at<double>(i,j)) << std::endl;
+	          std::cout << "Hi_1 = " << std::complex<double>(0,-1*transferFunctionList.at(0).at<double>(i,j)) << std::endl;
+	          */
 	        
 	          H_sum += std::complex<double>(0,transferFunctionList.at(1).at<double>(i,j));
-	          Hi_sum += std::complex<double>(0,-1*transferFunctionList.at(1).at<double>(j,i));
+	          Hi_sum += std::complex<double>(0,-1*transferFunctionList.at(1).at<double>(i,j));
 	          I_sum += std::complex<double>(dpcFtRealList.at(1).at<double>(i,j),dpcFtImagList.at(1).at<double>(i,j));
-
+	          
+	          /*
+	          std::cout << "TF2:" << std::endl;
+	          std::cout << "I_2 = " << std::complex<double>(dpcFtRealList.at(1).at<double>(i,j),dpcFtImagList.at(1).at<double>(i,j)) << std::endl;
+	          std::cout << "H_2 = " << std::complex<double>(0,transferFunctionList.at(1).at<double>(i,j)) << std::endl;
+	          std::cout << "Hi_2 = " << std::complex<double>(0,-1*transferFunctionList.at(1).at<double>(i,j)) << std::endl;
+	          */
+	  
 	          result = ((I_sum*Hi_sum)/(abs(H_sum)*abs(H_sum) + reg));
 	      
             //don't let threads execute this at same time
-            #pragma omp critical
+            //#pragma omp critical
 	          {
                 //set result pixels
 	              ph_dpc_ft_real.at<double>(i,j) = result.real();
@@ -278,9 +298,8 @@ cv::Mat qDPC_loop(vector<cv::Mat>dpcList, vector<cv::Mat>transferFunctionList, d
 	  Mat ph_complex_ft, ph_complex;
 	  planes[0] = ph_dpc_ft_real;
 	  planes[1] = ph_dpc_ft_imag;
-	
    
-    merge(planes, 2, ph_complex_ft);    
+     merge(planes, 2, ph_complex_ft);    
 	  dft(ph_complex_ft, ph_complex, DFT_INVERSE);
 	  split(ph_complex, complexPlanes); 
 	
@@ -299,10 +318,12 @@ int main(int argc, char** argv )
    
     char * trans_fName_1;
     char * trans_fName_2;
+
+    char * regVal;
    
-    if (argc < 7)
+    if (argc < 8)
     {
-        cout << "Error: Not enough inputs.\nUSAGE: ./qDPC_desktop topImage bottomImage leftImage rightImage firstTransferFunc secondTransferFunc" << endl;
+        cout << "Error: Not enough inputs.\nUSAGE: ./qDPC_desktop topImage bottomImage leftImage rightImage firstTransferFunc secondTransferFunc regVal" << endl;
         return 0;
     }
    
@@ -312,6 +333,7 @@ int main(int argc, char** argv )
     dpc_fName_22 = argv[4];
     trans_fName_1 = argv[5];
     trans_fName_2 = argv[6];
+    regVal = argv[7];
    
     std::cout << "dpc 11: " << dpc_fName_11 << std::endl;
     std::cout << "dpc 12: " << dpc_fName_12 << std::endl;
@@ -363,8 +385,8 @@ int main(int argc, char** argv )
     normalize(trans2, trans2, -1, 1, CV_MINMAX);
 	
     vector<cv::Mat> transferFunctionList;
-	  transferFunctionList.push_back(trans1);
-	  transferFunctionList.push_back(trans2);
+    transferFunctionList.push_back(trans1);
+    transferFunctionList.push_back(trans1);
    
     // Crop to square
     dpc11 = dpc11 (CellScopeCropHorz);
@@ -378,17 +400,25 @@ int main(int argc, char** argv )
    
     vector<cv::Mat> dpcList;
     dpcList.push_back(dpc1);
-    dpcList.push_back(dpc2);
+    dpcList.push_back(dpc1);
 
-	  double reg = 0.8;
-	  Mat ph_dpc = qDPC_loop(dpcList,transferFunctionList,reg);
+    double reg = std::atof(regVal);
+    Mat ph_dpc = qDPC_loop(dpcList,transferFunctionList,reg);
     normalize(ph_dpc, ph_dpc, -0.3, 1.4, CV_MINMAX);
    
     Mat cm_ph_dpc;
     cv::applyColorMap(ph_dpc, cm_ph_dpc, COLORMAP_COOL);
-    namedWindow("Phase Image", WINDOW_NORMAL);
 
+    namedWindow("DPC1", WINDOW_NORMAL);
+    imshow("DPC1", dpc1);
+
+    namedWindow("DPC2", WINDOW_NORMAL);
+    imshow("DPC2", dpc2);
+
+
+    namedWindow("Phase Image", WINDOW_NORMAL);
     imshow("Phase Image", ph_dpc);
+
     cout << "Execution took " << omp_get_wtime() - startTime << " seconds." << endl;
 
     waitKey(0);
